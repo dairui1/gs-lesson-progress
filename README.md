@@ -4,6 +4,38 @@
 
 就這麼簡單。
 
+## 它是怎麼運作的
+
+```mermaid
+flowchart TD
+    Z["📹 Zoom 會議結束<br/>(AI Companion 產生摘要)"]
+    Hook["⚙️ Apps Script Webhook<br/>自動預填日期/時數/摘要"]
+    T["👩‍🏫 老師打開 AppSheet<br/>補上課內容與作業<br/>勾選「發信」"]
+    S[("📊 Google Sheet<br/>學生資料 + 上課紀錄")]
+    M["⚙️ Apps Script<br/>每 5 分鐘掃描待發信"]
+    G["✉️ GmailApp 寄送"]
+    P["👨‍👩‍👧 家長收到<br/>整理好的上課紀錄信"]
+
+    Z -. 選用：接 webhook 可自動預填 .-> Hook
+    Hook --> S
+    T --> S
+    S --> M
+    M --> G
+    G --> P
+
+    style Hook stroke-dasharray: 5 5
+    style Z fill:#e1f5ff
+    style T fill:#fff4e1
+    style P fill:#e8f5e9
+    style S fill:#f3e5f5
+```
+
+**整條流程有兩個「寫入 Google Sheet」的入口**：
+- **老師手動填**（一定會用到）：透過 AppSheet App 填表
+- **Webhook 自動預填**（選用）：Zoom 會議結束自動補上日期、時數、AI 摘要連結
+
+**一個「寄信」的出口**：老師在 AppSheet 勾選「發信」後，每 5 分鐘一次的排程會自動把信寄給對應家長。
+
 ---
 
 ## 開始之前，你需要準備
