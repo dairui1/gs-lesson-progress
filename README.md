@@ -14,19 +14,80 @@
 
 ---
 
-## 第 0 步：請工程師幫你把程式放進你的 Google
+## 第 0 步：把工具裝起來（只做一次）
 
-這一步只做一次。請工程師在電腦上幫你執行：
+> 這步會用到電腦的「終端機」。聽起來很可怕，其實只是把下面的指令複製貼上，按 Enter 就好。如果真的沒辦法，請找工程師朋友幫忙跑這一節，後面的步驟你自己都做得來。
+
+### 0-1. 開啟終端機
+
+- **Mac**：按 `⌘ + 空白鍵` 打開 Spotlight → 輸入 `terminal` → Enter
+- **Windows**：開始選單搜尋 `PowerShell` → 打開它
+
+### 0-2. 裝 Node.js
+
+Node.js 是讓下一步的 `clasp` 工具能跑起來的底層環境。
+
+**Mac 最簡單的方法**（建議先裝 Homebrew，已裝跳過）：
 
 ```bash
-cd gs-lesson-progress
-clasp login                 # 用你的 Google 帳號登入
-clasp create --type standalone --title "上課進度表" --rootDir ./src
-clasp push
-clasp open-script           # 幫你打開 Apps Script 編輯器
+# 先裝 Homebrew（已裝跳過）
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 再裝 Node.js
+brew install node
 ```
 
-工程師做完後，瀏覽器會自動停在一個叫「Apps Script 編輯器」的頁面。**接下來你可以自己做**。
+**Windows**：到 <https://nodejs.org/> 下載「**LTS**」版本，一路下一步安裝即可。
+
+裝完在終端機輸入 `node -v`，看到 `v20.x.x` 之類的版本號就代表 OK。
+
+### 0-3. 裝 clasp（Google 官方的 Apps Script 命令列工具）
+
+```bash
+npm install -g @google/clasp
+```
+
+裝完輸入 `clasp --version`，看到版本號（例如 `3.0.6`）就 OK。
+
+> 如果跳出 `permission denied` 錯誤：Mac 改成 `sudo npm install -g @google/clasp`（會要輸入你登入電腦的密碼）；Windows 改用「以系統管理員身份執行」打開 PowerShell 再跑一次。
+
+### 0-4. 用 Google 帳號登入 clasp
+
+```bash
+clasp login
+```
+
+瀏覽器會自動彈出 Google 登入頁 → 選你要用的帳號（**和要存上課資料的 Google 帳號要是同一個**）→ 一路「允許」→ 回到終端機看到 `Authorization successful` 就成功了。
+
+### 0-5. 把這個專案下載下來並推上你的 Apps Script
+
+```bash
+# 挑個你喜歡的資料夾，例如桌面
+cd ~/Desktop
+
+# 下載專案
+git clone https://github.com/dairui1/gs-lesson-progress.git
+cd gs-lesson-progress
+
+# 安裝專案相依套件（其實只會裝 clasp 的版本鎖定，很快）
+npm install
+
+# 在你的 Google 帳號裡建立一個新的 Apps Script 專案
+clasp create --type standalone --title "上課進度表" --rootDir ./src
+
+# ⚠️ 重要：上一步會把 src/appsscript.json 覆蓋成預設版本，
+# 所以再跑一次 push 把我們準備好的版本推上去
+clasp push
+
+# 打開 Apps Script 編輯器
+clasp open-script
+```
+
+> 如果 `git clone` 那行跳出 `git: command not found`：Mac 終端機輸入 `xcode-select --install` 安裝；Windows 到 <https://git-scm.com/> 下載 Git for Windows。
+
+> 執行 `clasp push` 時如果它問「Manifest file has been updated. Do you want to push and overwrite?」請輸入 `y` 然後 Enter。
+
+瀏覽器應該會自動打開 **Apps Script 編輯器**頁面。**接下來所有步驟都在網頁上做，不用再碰終端機**。
 
 ---
 
