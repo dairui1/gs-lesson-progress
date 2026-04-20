@@ -1,0 +1,16 @@
+{
+  "name": "gs-lesson-progress",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zoom webhook + Apps Script + Google Sheets 上課進度統整",
+  "scripts": {
+    "push": "clasp push",
+    "pull": "clasp pull",
+    "open": "clasp open-script",
+    "deploy": "clasp deploy --description \"v1\"",
+    "logs": "clasp logs"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.3.0"
+  }
+}
