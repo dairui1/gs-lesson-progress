@@ -1,6 +1,6 @@
 /**
  * Utils.js
- * HMAC / 日期 / JSON / 去重等輔助。
+ * HMAC / 日期 / JSON / 事件日誌等輔助。
  */
 
 function hmacHex_(message, secret) {
@@ -24,40 +24,22 @@ function safeJsonParse_(s) {
 }
 
 /**
- * 寫入 Log 分頁；避免本身拋錯中斷主流程。
+ * 事件日誌：寫到 Apps Script Stackdriver（clasp logs 可看），不落 Sheet。
  */
 function logEvent_(eventName, summary, payload) {
   try {
-    var ss = SpreadsheetApp.openById(getMasterId_());
-    var log = ss.getSheetByName(SHEET_LOG);
-    if (!log) {
-      log = ss.insertSheet(SHEET_LOG);
-      log.appendRow(LOG_HEADERS);
-      log.setFrozenRows(1);
-    }
-    log.appendRow([
-      new Date(),
-      eventName || '',
-      summary || '',
-      typeof payload === 'string' ? payload : JSON.stringify(payload || {})
-    ]);
+    var body = (eventName || '') + ' | ' + (summary || '');
+    var p = typeof payload === 'string' ? payload : JSON.stringify(payload || {});
+    console.log(body + ' | ' + p);
   } catch (e) {
     console.error('logEvent_ failed:', e && e.message);
   }
 }
 
-/**
- * Zoom meeting uuid 可能含 "=" 與 "/"，轉為 cache-safe key。
- */
 function uuidLockKey_(uuid) {
   return 'zoom_uuid_' + Utilities.base64EncodeWebSafe(String(uuid || ''));
 }
 
-/**
- * 將任意值轉為 ContentService JSON 回應。
- * 備註：Apps Script Web App 無法自訂 HTTP status code，
- * 非預期狀況一律回 200 + { ok:false, reason } 讓 Zoom 不重送。
- */
 function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))

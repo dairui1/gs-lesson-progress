@@ -93,7 +93,7 @@ function handleMeetingEnded_(body) {
   });
 
   logEvent_('lesson_ended',
-    student.student_id + ' / ' + student['學生姓名'] + ' @ ' + topic,
+    student['學生姓名'] + ' @ ' + topic,
     { meeting_id: meetingId, uuid: uuid, action: res.action }
   );
 }
@@ -135,7 +135,7 @@ function handleSummaryCompleted_(body) {
   });
 
   logEvent_('lesson_summary',
-    student.student_id + ' / ' + student['學生姓名'] + ' @ ' + topic,
+    student['學生姓名'] + ' @ ' + topic,
     { meeting_id: meetingId, uuid: uuid, action: res.action, hasNextSteps: nextSteps.length }
   );
 }

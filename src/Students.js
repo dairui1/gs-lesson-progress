@@ -1,6 +1,6 @@
 /**
  * Students.js
- * 「學生資料」表的查找與更新。
+ * 「學生資料」表的查找。以「學生姓名」為事實主鍵。
  */
 
 function Students_all_() {
@@ -9,11 +9,13 @@ function Students_all_() {
   if (!sh) return [];
   var last = sh.getLastRow();
   if (last < 2) return [];
-  var values = sh.getRange(2, 1, last - 1, STUDENTS_HEADERS.length).getValues();
+  var head = readHeaders_(sh);
+  if (head.lastCol < 1) return [];
+  var values = sh.getRange(2, 1, last - 1, head.lastCol).getValues();
   return values.map(function (row, i) {
     var o = { _rowIndex: i + 2 };
-    STUDENTS_HEADERS.forEach(function (h, idx) {
-      o[h] = row[idx];
+    head.headers.forEach(function (h, idx) {
+      if (h) o[h] = row[idx];
     });
     return o;
   });
@@ -30,7 +32,16 @@ function Students_find(key, value) {
 }
 
 /**
- * 依 Zoom meeting_id 找到學生；兩邊都正規化為無空白字串。
+ * 依學生姓名查家長 Email；找不到或空字串回傳 ''。
+ */
+function lookupParentEmailByName_(name) {
+  var s = Students_find('學生姓名', name);
+  if (!s) return '';
+  return String(s['家長Email'] || '').trim();
+}
+
+/**
+ * 依 Zoom meeting_id 找學生；若學生資料沒有 zoom_meeting_id 欄位，自然回傳 null。
  */
 function findByZoomMeetingId(meetingId) {
   if (!meetingId) return null;
@@ -44,41 +55,15 @@ function findByZoomMeetingId(meetingId) {
 }
 
 /**
- * 以會議名稱 fallback 反推學生：找「S\d+」或「學生姓名」子字串。
+ * 以會議主題反推學生：嘗試以「學生姓名」子字串匹配。
  */
 function findByMeetingTopic_(topic) {
   if (!topic) return null;
   var t = String(topic);
-  var m = /\b(S\d{3,})\b/.exec(t);
-  if (m) {
-    var byId = Students_find('student_id', m[1]);
-    if (byId) return byId;
-  }
   var list = Students_all_();
   for (var i = 0; i < list.length; i++) {
     var name = String(list[i]['學生姓名'] || '').trim();
     if (name && t.indexOf(name) >= 0) return list[i];
   }
   return null;
-}
-
-function Students_update(studentId, patch) {
-  var ss = SpreadsheetApp.openById(getMasterId_());
-  var sh = ss.getSheetByName(SHEET_STUDENTS);
-  var s = Students_find('student_id', studentId);
-  if (!s) throw new Error('student not found: ' + studentId);
-  STUDENTS_HEADERS.forEach(function (h, idx) {
-    if (Object.prototype.hasOwnProperty.call(patch, h)) {
-      sh.getRange(s._rowIndex, idx + 1).setValue(patch[h]);
-    }
-  });
-}
-
-function Students_nextId_() {
-  var list = Students_all_();
-  var max = list.reduce(function (acc, s) {
-    var m = /^S(\d+)$/.exec(String(s.student_id || ''));
-    return m ? Math.max(acc, parseInt(m[1], 10)) : acc;
-  }, 0);
-  return 'S' + String(max + 1).padStart(3, '0');
 }

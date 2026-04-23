@@ -1,49 +1,65 @@
 /**
  * Email.js
  * 掃描「上課紀錄」表，針對 發信=TRUE 且 EmailSent!=TRUE 的列寄送家長信。
- * 由 5 分鐘時間觸發器週期性執行（在 initMasterSpreadsheet 時安裝）。
+ * 由 5 分鐘時間觸發器週期性執行（attachToExistingSpreadsheet 會安裝）。
  *
+ * 家長 Email 取值順序：該行「家長Email」→ 若空則以「學生姓名」去「學生資料」反查。
  * 發件：GmailApp.sendEmail，免費 Gmail 每日額度 100 封、Workspace 1500 封。
  */
 
 function sendPendingEmails() {
   var ss = SpreadsheetApp.openById(getMasterId_());
   var sh = ss.getSheetByName(SHEET_LESSONS);
-  if (!sh) return { sent: 0, failed: 0, skipped: 0 };
+  if (!sh) {
+    console.warn('sendPendingEmails: 找不到分頁「' + SHEET_LESSONS + '」');
+    return { sent: 0, failed: 0, skipped: 0 };
+  }
+
+  var head = readHeaders_(sh);
+  var required = ['發信', 'EmailSent', '學生姓名', '日期'];
+  var missing = required.filter(function (h) { return head.idx[h] === undefined; });
+  if (missing.length) {
+    console.warn('sendPendingEmails: 表頭缺少欄位 ' + missing.join(', '));
+    return { sent: 0, failed: 0, skipped: 0 };
+  }
 
   var last = sh.getLastRow();
   if (last < 2) return { sent: 0, failed: 0, skipped: 0 };
 
-  var idx = {};
-  LESSONS_HEADERS.forEach(function (h, i) { idx[h] = i; });
-
-  var values = sh.getRange(2, 1, last - 1, LESSONS_HEADERS.length).getValues();
+  var values = sh.getRange(2, 1, last - 1, head.lastCol).getValues();
   var senderName = getEmailSenderName_();
   var cc = getEmailCc_();
-
   var sent = 0, failed = 0, skipped = 0;
 
   for (var i = 0; i < values.length; i++) {
     var row = values[i];
     var rowIndex = i + 2;
 
-    if (!isTruthyFlag_(row[idx['發信']])) { skipped++; continue; }
-    if (isTruthyFlag_(row[idx['EmailSent']])) { skipped++; continue; }
+    if (!isTruthyFlag_(row[head.idx['發信']])) { skipped++; continue; }
+    if (isTruthyFlag_(row[head.idx['EmailSent']])) { skipped++; continue; }
 
-    var parentEmail = String(row[idx['家長email']] || '').trim();
+    var studentName = String(row[head.idx['學生姓名']] || '').trim();
+    var parentEmail = head.idx['家長Email'] !== undefined
+      ? String(row[head.idx['家長Email']] || '').trim() : '';
+
+    if (!parentEmail) {
+      parentEmail = lookupParentEmailByName_(studentName);
+    }
+
     if (!parentEmail || parentEmail.indexOf('@') < 0) {
-      _writeError_(sh, rowIndex, idx, '家長email 欄位為空或格式錯誤');
+      _writeError_(sh, head, rowIndex, '家長Email 欄位為空或格式錯誤（也找不到學生「' + studentName + '」的聯絡信箱）');
       failed++;
       continue;
     }
 
     var payload = {
-      studentName: row[idx['學生姓名']] || '',
-      date: row[idx['日期']] || '',
-      content: row[idx['上課內容']] || '',
-      homework: row[idx['作業']] || '',
-      durationHr: row[idx['上課時數(hr)']],
-      summaryUrl: row[idx['學習狀況/建議(會議摘要)']] || '',
+      studentName: studentName,
+      date: row[head.idx['日期']] || '',
+      content: head.idx['上課內容'] !== undefined ? (row[head.idx['上課內容']] || '') : '',
+      homework: head.idx['作業'] !== undefined ? (row[head.idx['作業']] || '') : '',
+      durationHr: head.idx['上課時數(hr)'] !== undefined ? row[head.idx['上課時數(hr)']] : '',
+      summaryUrl: head.idx['學習狀況/建議(會議摘要)'] !== undefined
+        ? (row[head.idx['學習狀況/建議(會議摘要)']] || '') : '',
       senderName: senderName
     };
     var subject = (payload.studentName || '學生') + ' 的上課紀錄 - ' + _subjectDate_(payload.date);
@@ -54,13 +70,13 @@ function sendPendingEmails() {
 
     try {
       GmailApp.sendEmail(parentEmail, subject, plain, options);
-      sh.getRange(rowIndex, idx['EmailSent'] + 1).setValue(true);
-      sh.getRange(rowIndex, idx['SentAt'] + 1).setValue(new Date());
-      sh.getRange(rowIndex, idx['ErrorMessage'] + 1).setValue('');
+      if (head.idx['EmailSent'] !== undefined) sh.getRange(rowIndex, head.idx['EmailSent'] + 1).setValue(true);
+      if (head.idx['SentAt'] !== undefined) sh.getRange(rowIndex, head.idx['SentAt'] + 1).setValue(new Date());
+      if (head.idx['ErrorMessage'] !== undefined) sh.getRange(rowIndex, head.idx['ErrorMessage'] + 1).setValue('');
       sent++;
       logEvent_('email_sent', parentEmail + ' / ' + payload.studentName, { date: payload.date });
     } catch (err) {
-      _writeError_(sh, rowIndex, idx, String(err && err.message || err));
+      _writeError_(sh, head, rowIndex, String(err && err.message || err));
       failed++;
       logEvent_('email_failed', parentEmail, { err: String(err && err.message || err) });
     }
@@ -69,9 +85,11 @@ function sendPendingEmails() {
   return { sent: sent, failed: failed, skipped: skipped };
 }
 
-function _writeError_(sh, rowIndex, idx, msg) {
+function _writeError_(sh, head, rowIndex, msg) {
   try {
-    sh.getRange(rowIndex, idx['ErrorMessage'] + 1).setValue(msg);
+    if (head.idx['ErrorMessage'] !== undefined) {
+      sh.getRange(rowIndex, head.idx['ErrorMessage'] + 1).setValue(msg);
+    }
   } catch (e) { /* noop */ }
 }
 
@@ -81,7 +99,6 @@ function _subjectDate_(v) {
     return formatDateTz_(v, 'yyyy-MM-dd');
   }
   var s = String(v);
-  // 盡量抓前 10 或 16 個字元作為日期主體
   return s.length > 16 ? s.substring(0, 16) : s;
 }
 
