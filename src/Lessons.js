@@ -49,9 +49,11 @@ function _insertLessonRow_(sh, head, payload) {
   _setIfHas_(row, head, '日期', _formatLessonDate_(payload.startTime));
   _setIfHas_(row, head, '學生姓名', payload.student && payload.student['學生姓名']);
   _setIfHas_(row, head, '家長Email', payload.student && payload.student['家長Email']);
+  _setIfHas_(row, head, '上課內容', payload.lessonContent || '');
   _setIfHas_(row, head, '作業', payload.homeworkFromAI || '');
   _setIfHas_(row, head, '上課時數(hr)', _normalizeHr_(payload.durationHr));
-  _setIfHas_(row, head, '學習狀況/建議(會議摘要)', payload.summaryDocUrl || '');
+  _setIfHas_(row, head, '學習狀況/建議(會議摘要)', payload.summaryFullText || '');
+  _setIfHas_(row, head, '會議摘要連結', payload.summaryDocUrl || '');
   _setIfHas_(row, head, 'Zoom主題', payload.topic || '');
   _setIfHas_(row, head, 'Meeting UUID', payload.uuid || '');
   _setIfHas_(row, head, '發信', false);
@@ -86,7 +88,9 @@ function _updateLessonRow_(sh, head, rowIndex, payload) {
   setIfEmpty('家長Email', payload.student && payload.student['家長Email']);
 
   if (payload.source === 'summary') {
-    setAlways('學習狀況/建議(會議摘要)', payload.summaryDocUrl);
+    setAlways('上課內容', payload.lessonContent);
+    setAlways('學習狀況/建議(會議摘要)', payload.summaryFullText);
+    setAlways('會議摘要連結', payload.summaryDocUrl);
     setIfEmpty('作業', payload.homeworkFromAI);
   }
 

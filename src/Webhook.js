@@ -107,6 +107,8 @@ function handleSummaryCompleted_(body) {
   var startTime = obj.meeting_start_time || obj.start_time || '';
   var endTime = obj.meeting_end_time || obj.end_time || '';
   var summaryDocUrl = obj.summary_doc_url || obj.summary_url || '';
+  var summaryOverview = obj.summary_overview || '';
+  var summaryDetails = obj.summary_details || [];
   var nextSteps = obj.next_steps || [];
 
   if (uuid && _seen_(uuid + ':summary')) {
@@ -122,6 +124,7 @@ function handleSummaryCompleted_(body) {
 
   var durationHr = computeDurationHr_(startTime, endTime);
   var homeworkFromAI = _formatNextSteps_(nextSteps);
+  var summaryFullText = _formatSummaryDetails_(summaryDetails, summaryOverview);
 
   var res = upsertLesson({
     source: 'summary',
@@ -130,6 +133,8 @@ function handleSummaryCompleted_(body) {
     topic: topic,
     startTime: startTime || new Date().toISOString(),
     durationHr: durationHr,
+    lessonContent: summaryOverview,
+    summaryFullText: summaryFullText,
     summaryDocUrl: summaryDocUrl,
     homeworkFromAI: homeworkFromAI
   });
@@ -150,6 +155,22 @@ function _seen_(key) {
   if (cache.get(k)) return true;
   cache.put(k, '1', 600);
   return false;
+}
+
+function _formatSummaryDetails_(details, overview) {
+  var parts = [];
+  if (details && details.length) {
+    details.forEach(function (d) {
+      if (!d) return;
+      var label = d.label || d.section || d.title || '';
+      var text = d.summary || d.content || d.text || '';
+      if (typeof d === 'string') text = d;
+      if (!text) return;
+      parts.push((label ? '【' + label + '】\n' : '') + text);
+    });
+  }
+  if (!parts.length && overview) return overview;
+  return parts.join('\n\n');
 }
 
 function _formatNextSteps_(nextSteps) {
