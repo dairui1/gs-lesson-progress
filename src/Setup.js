@@ -65,6 +65,8 @@ function onOpen() {
   try {
     SpreadsheetApp.getUi()
       .createMenu('老師工具')
+      .addItem('使用說明', 'uiShowHelp')
+      .addSeparator()
       .addItem('立即掃描並寄送待發 Email', 'uiSendNow')
       .addSeparator()
       .addItem('顯示 Webhook 設定資訊', 'uiShowWebhookInfo')
@@ -74,6 +76,40 @@ function onOpen() {
   } catch (e) {
     console.warn('onOpen menu failed:', e && e.message);
   }
+}
+
+function uiShowHelp() {
+  var ui = SpreadsheetApp.getUi();
+  ui.alert('家教上課紀錄系統 — 使用說明', [
+    '【主要流程】',
+    '1. Zoom 上完課，AI Companion 摘要產生後（約 5–10 分鐘），',
+    '   「上課紀錄」分頁會自動新增一列，並自動填入：',
+    '     ・日期 / 上課時數',
+    '     ・上課內容（Zoom 摘要的 Overview）',
+    '     ・作業(Zoom 摘要的 Next Steps）',
+    '     ・學習狀況/建議（會議摘要全文）',
+    '     ・會議摘要連結',
+    '',
+    '2. 檢查 AI 帶入的內容，可直接在表格修改。',
+    '',
+    '3. 確認無誤後，把該列的「發信」欄位勾起來。',
+    '',
+    '4. 系統每 5 分鐘自動掃描，把勾選的列寄信給家長。',
+    '   寄出後：EmailSent 自動勾起 / SentAt 填入時間。',
+    '',
+    '【常用操作】',
+    '・想立刻寄、不等 5 分鐘：選單「立即掃描並寄送待發 Email」',
+    '・想重寄某列：把該列 EmailSent 取消勾選，再勾「發信」',
+    '・「家長Email」空白時，系統會用「學生姓名」到「學生資料」分頁反查',
+    '',
+    '【寄件人】',
+    '寄信使用本 Google 帳號（家長按回覆會回到老師信箱）。',
+    '想改顯示名稱：Apps Script → 專案設定 → 指令碼屬性 →',
+    '新增 EMAIL_SENDER_NAME = 你想顯示的名字',
+    '',
+    '【寄信額度】',
+    '免費 Gmail：100 封/天　|　Google Workspace：1500 封/天'
+  ].join('\n'), ui.ButtonSet.OK);
 }
 
 function uiSendNow() {
