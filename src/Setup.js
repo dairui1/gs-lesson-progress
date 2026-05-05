@@ -159,6 +159,35 @@ function markAllHistoricalAsSent() {
   return info;
 }
 
+/**
+ * Debug：模擬 Zoom meeting.ended 事件，看會發生什麼。
+ * 在 Apps Script 編輯器選此函式 → 執行 → 看執行紀錄輸出。
+ * 之後再去 Sheet 開 _log_ 分頁看完整事件。
+ */
+function debugSimulateMeetingEnded() {
+  var students = Students_all_();
+  var firstName = students.length ? students[0]['學生姓名'] : '';
+  var fakeBody = {
+    event: 'meeting.ended',
+    payload: {
+      object: {
+        uuid: 'debug-uuid-' + new Date().getTime(),
+        id: '999999999',
+        topic: firstName ? ('DEBUG ' + firstName + ' 測試') : 'DEBUG 沒有任何學生',
+        start_time: new Date(Date.now() - 3600000).toISOString(),
+        end_time: new Date().toISOString(),
+        duration: 60
+      }
+    }
+  };
+  console.log('students count:', students.length);
+  console.log('first student:', JSON.stringify(students[0] || {}));
+  console.log('fake topic:', fakeBody.payload.object.topic);
+  handleMeetingEnded_(fakeBody);
+  console.log('done — 去 Sheet 看 _log_ 與 上課紀錄 分頁');
+  return { studentsCount: students.length, fakeTopic: fakeBody.payload.object.topic };
+}
+
 function uiShowWebhookInfo() {
   var ui = SpreadsheetApp.getUi();
   var token = getUrlToken_() || '(尚未產生，請先執行 attachToExistingSpreadsheet)';

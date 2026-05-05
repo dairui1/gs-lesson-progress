@@ -31,8 +31,23 @@ function logEvent_(eventName, summary, payload) {
     var body = (eventName || '') + ' | ' + (summary || '');
     var p = typeof payload === 'string' ? payload : JSON.stringify(payload || {});
     console.log(body + ' | ' + p);
+    _appendDebugLog_(eventName, summary, p);
   } catch (e) {
     console.error('logEvent_ failed:', e && e.message);
+  }
+}
+
+function _appendDebugLog_(eventName, summary, payloadStr) {
+  try {
+    var ss = SpreadsheetApp.openById(getMasterId_());
+    var sh = ss.getSheetByName('_log_');
+    if (!sh) {
+      sh = ss.insertSheet('_log_');
+      sh.appendRow(['時間', '事件', '摘要', 'payload']);
+    }
+    sh.appendRow([new Date(), eventName || '', summary || '', payloadStr || '']);
+  } catch (e) {
+    console.error('_appendDebugLog_ failed:', e && e.message);
   }
 }
 
