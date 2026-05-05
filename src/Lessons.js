@@ -41,11 +41,66 @@ function upsertLesson(payload) {
   }
 
   var rowIndex = _insertLessonRow_(sh, head, payload);
-  return { action: 'insert', rowIndex: rowIndex };
+  var counter = _bumpStudentLessonCount_(payload.student && payload.student['學生姓名']);
+  return { action: 'insert', rowIndex: rowIndex, counter: counter };
+}
+
+/**
+ * 新增一堂課時，到「學生資料」對應列：已上課堂數 +1、剩餘堂數 -1。
+ * 允許剩餘堂數變成負數，但會 logEvent_ 提醒。
+ */
+function _bumpStudentLessonCount_(studentName) {
+  if (!studentName) return null;
+  var ss = SpreadsheetApp.openById(getMasterId_());
+  var sh = ss.getSheetByName(SHEET_STUDENTS);
+  if (!sh) return null;
+  var head = readHeaders_(sh);
+  var nameCol = head.idx['學生姓名'];
+  var doneCol = head.idx['已上課堂數'];
+  var leftCol = head.idx['剩餘堂數'];
+  if (nameCol === undefined || (doneCol === undefined && leftCol === undefined)) return null;
+
+  var last = sh.getLastRow();
+  if (last < 2) return null;
+  var values = sh.getRange(2, 1, last - 1, head.lastCol).getValues();
+  var target = String(studentName).trim();
+  var rowIndex = -1;
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][nameCol] || '').trim() === target) {
+      rowIndex = i + 2;
+      break;
+    }
+  }
+  if (rowIndex < 0) {
+    logEvent_('lesson_count', '找不到學生，跳過堂數遞增', { name: studentName });
+    return null;
+  }
+
+  var done = null;
+  var left = null;
+  if (doneCol !== undefined) {
+    var dRaw = values[rowIndex - 2][doneCol];
+    var dNum = Number(dRaw);
+    done = (isNaN(dNum) ? 0 : dNum) + 1;
+    sh.getRange(rowIndex, doneCol + 1).setValue(done);
+  }
+  if (leftCol !== undefined) {
+    var lRaw = values[rowIndex - 2][leftCol];
+    var lNum = Number(lRaw);
+    left = (isNaN(lNum) ? 0 : lNum) - 1;
+    sh.getRange(rowIndex, leftCol + 1).setValue(left);
+    if (left < 0) {
+      logEvent_('lesson_count', '剩餘堂數已為負數，請補堂', {
+        name: studentName, 已上課堂數: done, 剩餘堂數: left
+      });
+    }
+  }
+  return { rowIndex: rowIndex, 已上課堂數: done, 剩餘堂數: left };
 }
 
 function _insertLessonRow_(sh, head, payload) {
   var row = new Array(head.lastCol).fill('');
+  _setIfHas_(row, head, 'ID', Utilities.getUuid());
   _setIfHas_(row, head, '日期', _formatLessonDate_(payload.startTime));
   _setIfHas_(row, head, '學生姓名', payload.student && payload.student['學生姓名']);
   _setIfHas_(row, head, '家長Email', payload.student && payload.student['家長Email']);
@@ -109,7 +164,7 @@ function _formatLessonDate_(startTime) {
   if (!startTime) return '';
   var d = new Date(startTime);
   if (isNaN(d.getTime())) return '';
-  return formatDateTz_(d, 'yyyy-MM-dd HH:mm');
+  return formatDateTz_(d, 'yyyy-MM-dd');
 }
 
 function _normalizeHr_(hr) {
