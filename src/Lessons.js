@@ -41,61 +41,66 @@ function upsertLesson(payload) {
   }
 
   var rowIndex = _insertLessonRow_(sh, head, payload);
-  var counter = _bumpStudentLessonCount_(payload.student && payload.student['學生姓名']);
-  return { action: 'insert', rowIndex: rowIndex, counter: counter };
+  return { action: 'insert', rowIndex: rowIndex };
 }
 
 /**
- * 新增一堂課時，到「學生資料」對應列：已上課堂數 +1、剩餘堂數 -1。
- * 允許剩餘堂數變成負數，但會 logEvent_ 提醒。
+ * 一次性：把學生資料的「已上課堂數 / 剩餘堂數」改成公式驅動。
+ *   已上課堂數 = COUNTIF(上課紀錄!學生姓名列, 本行學生姓名)
+ *   剩餘堂數   = 總堂數 - 已上課堂數
+ * 之後新增 / 刪除上課紀錄列時會自動同步，不需手動維護。
+ * 在 Apps Script Editor 選擇此函式按 Run 即可。
  */
-function _bumpStudentLessonCount_(studentName) {
-  if (!studentName) return null;
+function installLessonCountFormulas() {
   var ss = SpreadsheetApp.openById(getMasterId_());
-  var sh = ss.getSheetByName(SHEET_STUDENTS);
-  if (!sh) return null;
-  var head = readHeaders_(sh);
-  var nameCol = head.idx['學生姓名'];
-  var doneCol = head.idx['已上課堂數'];
-  var leftCol = head.idx['剩餘堂數'];
-  if (nameCol === undefined || (doneCol === undefined && leftCol === undefined)) return null;
+  var stuSh = ss.getSheetByName(SHEET_STUDENTS);
+  var lesSh = ss.getSheetByName(SHEET_LESSONS);
+  if (!stuSh || !lesSh) throw new Error('找不到必要分頁');
 
-  var last = sh.getLastRow();
-  if (last < 2) return null;
-  var values = sh.getRange(2, 1, last - 1, head.lastCol).getValues();
-  var target = String(studentName).trim();
-  var rowIndex = -1;
-  for (var i = 0; i < values.length; i++) {
-    if (String(values[i][nameCol] || '').trim() === target) {
-      rowIndex = i + 2;
-      break;
-    }
-  }
-  if (rowIndex < 0) {
-    logEvent_('lesson_count', '找不到學生，跳過堂數遞增', { name: studentName });
-    return null;
+  var stuHead = readHeaders_(stuSh);
+  var lesHead = readHeaders_(lesSh);
+  var nameStuIdx = stuHead.idx['學生姓名'];
+  var totalIdx = stuHead.idx['總堂數'];
+  var doneIdx = stuHead.idx['已上課堂數'];
+  var leftIdx = stuHead.idx['剩餘堂數'];
+  var nameLesIdx = lesHead.idx['學生姓名'];
+
+  if (nameStuIdx === undefined || doneIdx === undefined || nameLesIdx === undefined) {
+    throw new Error('表頭缺欄位：學生姓名 / 已上課堂數 / 上課紀錄學生姓名');
   }
 
-  var done = null;
-  var left = null;
-  if (doneCol !== undefined) {
-    var dRaw = values[rowIndex - 2][doneCol];
-    var dNum = Number(dRaw);
-    done = (isNaN(dNum) ? 0 : dNum) + 1;
-    sh.getRange(rowIndex, doneCol + 1).setValue(done);
-  }
-  if (leftCol !== undefined) {
-    var lRaw = values[rowIndex - 2][leftCol];
-    var lNum = Number(lRaw);
-    left = (isNaN(lNum) ? 0 : lNum) - 1;
-    sh.getRange(rowIndex, leftCol + 1).setValue(left);
-    if (left < 0) {
-      logEvent_('lesson_count', '剩餘堂數已為負數，請補堂', {
-        name: studentName, 已上課堂數: done, 剩餘堂數: left
-      });
+  var lastRow = stuSh.getLastRow();
+  if (lastRow < 2) return 'no student rows';
+
+  var nameCol = _colLetter_(nameStuIdx + 1);
+  var lesNameCol = _colLetter_(nameLesIdx + 1);
+  var doneCol = _colLetter_(doneIdx + 1);
+  var totalCol = totalIdx !== undefined ? _colLetter_(totalIdx + 1) : null;
+  var n = lastRow - 1;
+
+  var doneFormulas = [];
+  var leftFormulas = [];
+  for (var r = 2; r <= lastRow; r++) {
+    doneFormulas.push(["=COUNTIF('" + SHEET_LESSONS + "'!" + lesNameCol + ':' + lesNameCol + ', ' + nameCol + r + ')']);
+    if (leftIdx !== undefined && totalCol) {
+      leftFormulas.push(['=' + totalCol + r + '-' + doneCol + r]);
     }
   }
-  return { rowIndex: rowIndex, 已上課堂數: done, 剩餘堂數: left };
+  stuSh.getRange(2, doneIdx + 1, n, 1).setFormulas(doneFormulas);
+  if (leftFormulas.length) {
+    stuSh.getRange(2, leftIdx + 1, n, 1).setFormulas(leftFormulas);
+  }
+  return 'installed for ' + n + ' student rows';
+}
+
+function _colLetter_(n) {
+  var s = '';
+  while (n > 0) {
+    var r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
 }
 
 function _insertLessonRow_(sh, head, payload) {

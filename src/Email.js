@@ -87,6 +87,65 @@ function sendPendingEmails() {
   return { sent: sent, failed: failed, skipped: skipped };
 }
 
+/**
+ * 一次性測試：用 Zoom 真實 markdown 樣本，直接寄給 lyclyc17@gmail.com。
+ * 在 Apps Script Editor 選擇 sendTestEmail_ 並按 Run 即可。
+ */
+function sendTestEmail() {
+  var sample = [
+    '## 概述',
+    '',
+    '本次課程是一對一的雅思口語輔導課程，Leo老師針對學生Chloe的雅思口語考試進行了模擬測試和詳細指導。課程首先進行了完整的雅思口語三部分模擬考試，隨後Leo老師針對Chloe在發音、答題內容具體性和邏輯展開方面存在的問題進行了深入分析和改進建議。',
+    '',
+    '### 關鍵概念或理論：',
+    '',
+    '- 元音發音區分：特別是 /æ/ 和 /eɪ/ 音的正確發音',
+    '- 答題結構：觀點 (Opinion) + 解釋 (Explain) + 例子 (Example)',
+    '- 個人化思維：先從個人經驗出發，再泛化 (generalize) 為通用表達',
+    '- Part 1 答題原則：給出觀點後必須提供理由或例子',
+    '',
+    '### 提出的重要問題：',
+    '',
+    '- 如何判斷自己的回答是否足夠具體？',
+    '- 為什麼 pronunciation 被評為 6 分？',
+    '- 如何在 Part 3 中有效展開論述？',
+    '',
+    '## 主題1：發音問題診斷與改進',
+    '',
+    'Leo老師指出 Chloe 的 pronunciation 被評為 6 分的主要原因是元音發音錯誤，特別是將 /æ/ 音錯誤地發成 /eɪ/ 音。具體錯誤包括：famous 讀成 famos、same 讀成 sam、complained 讀成 complaned。',
+    '',
+    '### 相關問答',
+    '',
+    'Chloe: 這些發音問題應該如何系統性地改進？',
+    'Leo: 可以讓 AI 生成一些應該念 /æ/ 音的單詞列表，進行針對性練習，形成肌肉記憶。',
+    '',
+    '## 行動步驟/作業',
+    '',
+    '- 使用 AI 工具生成包含 /æ/ 音的單詞列表進行發音練習',
+    '- 練習 Part 1 答題時每個觀點後加上具體 reason 或 example',
+    '- 重點練習 Part 3，從個人經驗出發再泛化的思維方式'
+  ].join('\n');
+
+  var payload = {
+    studentName: '代睿（測試）',
+    date: formatDateTz_(new Date(), 'yyyy-MM-dd'),
+    content: '雅思口語三部分模擬考試 + 發音與答題結構講評',
+    homework: '- 練習 /æ/ 音單詞列表\n- 錄音回放檢查空泛表述',
+    durationHr: 1.3,
+    summaryText: sample,
+    summaryDocUrl: 'https://docs.zoom.us/doc/example',
+    senderName: getEmailSenderName_() || 'Test Sender'
+  };
+  var html = _buildEmailHtml_(payload);
+  GmailApp.sendEmail(
+    'lyclyc17@gmail.com',
+    '[測試] ' + payload.studentName + ' 的上課紀錄 - ' + payload.date,
+    _htmlToPlain_(html),
+    { htmlBody: html, name: payload.senderName }
+  );
+  return 'sent to lyclyc17@gmail.com';
+}
+
 function _writeError_(sh, head, rowIndex, msg) {
   try {
     if (head.idx['ErrorMessage'] !== undefined) {
