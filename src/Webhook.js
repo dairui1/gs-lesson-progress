@@ -112,6 +112,7 @@ function handleSummaryCompleted_(body) {
   var summaryDocUrl = obj.summary_doc_url || obj.summary_url || '';
   var summaryOverview = obj.summary_overview || '';
   var summaryDetails = obj.summary_details || [];
+  var summaryContent = obj.summary_content || '';
   var nextSteps = obj.next_steps || [];
 
   if (uuid && _seen_(uuid + ':summary')) {
@@ -127,7 +128,8 @@ function handleSummaryCompleted_(body) {
 
   var durationHr = computeDurationHr_(startTime, endTime);
   var homeworkFromAI = _formatNextSteps_(nextSteps);
-  var summaryFullText = _formatSummaryDetails_(summaryDetails, summaryOverview);
+  // 優先用 Zoom 渲染好的完整 markdown（即郵件正文來源），缺席時退回拼接
+  var summaryFullText = summaryContent || _formatSummaryDetails_(summaryDetails, summaryOverview);
 
   var res = upsertLesson({
     source: 'summary',
