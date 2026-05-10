@@ -20,6 +20,9 @@ function doPost(e) {
   var raw = (e && e.postData && e.postData.contents) || '';
   var body = safeJsonParse_(raw) || {};
 
+  // 排查期：先把原始 body 整段記下來，不管已知/未知事件
+  logEvent_('raw_body', body.event || '(no event)', body);
+
   try {
     // 1. URL 驗證（CRC）
     if (body.event === 'endpoint.url_validation') {
